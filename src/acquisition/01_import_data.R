@@ -7,7 +7,7 @@ print(paste("Dossier actuel :", getwd()))
 
 # 3. On recharge la librairie et on cherche les fichiers
 library(seqinr)
-fichiers_fasta <- list.files(path = "data", pattern = "\\.fasta$", full.names = TRUE)
+fichiers_fasta <- list.files(path = "data/premiere_sequence", pattern = "\\.fasta$", full.names = TRUE)
 
 # 4. Verdict ?
 if(length(fichiers_fasta) > 0) {

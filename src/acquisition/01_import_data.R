@@ -1,67 +1,46 @@
-# -----------------------------------------------------------------------------
-# MODULE 1 : IMPORTATION ET NETTOYAGE
-# Objectif : Charger les fichiers .fasta et préparer les séquences
-# -----------------------------------------------------------------------------
+# 1. On force R à se placer dans le dossier de ton projet
+# (Le tilde ~ remplace /home/ton_nom/...)
+setwd("~/2annee/Semestre2/Projet_EMS-VCOD")
 
-# Vérification et chargement du package
-if (!require("seqinr")) install.packages("seqinr")
+# 2. On vérifie qu'on est au bon endroit
+print(paste("Dossier actuel :", getwd()))
+
+# 3. On recharge la librairie et on cherche les fichiers
 library(seqinr)
+fichiers_fasta <- list.files(path = "data", pattern = "\\.fasta$", full.names = TRUE)
 
-# --- 1. IMPORTATION AUTOMATISÉE ---
-
-# Lister tous les fichiers .fasta dans le dossier data
-# (Assure-toi que le dossier 'data' est bien au même niveau que le dossier 'scripts')
-fichiers_fasta <- list.files(path = "../data", pattern = "\\.fasta$", full.names = TRUE)
-
-# Si ton script est à la racine du projet, utilise : path = "data"
-# Si ton script est dans un dossier 'scripts', utilise : path = "../data"
-
-print(paste("Fichiers trouvés :", length(fichiers_fasta)))
-
-# Initialisation de la liste de stockage
-toutes_les_donnees <- list()
-
-# Boucle de lecture
-for (fichier in fichiers_fasta) {
+# 4. Verdict ?
+if(length(fichiers_fasta) > 0) {
+  print(paste("SUCCÈS !", length(fichiers_fasta), "fichiers trouvés."))
   
-  # Lecture via seqinr
-  alignement <- read.alignment(file = fichier, format = "fasta")
+  # --- Si succès, on lance l'importation tout de suite ---
+  toutes_les_donnees <- list()
   
-  # Extraction métadonnées via le nom du fichier (ex: hiv_db_FR_0.fasta)
-  nom_fichier <- basename(fichier)
-  infos <- strsplit(nom_fichier, "_")[[1]]
-  pays <- infos[3] # ex: FR
-  lot <- sub(".fasta", "", infos[4]) # ex: 0
+  for (fichier in fichiers_fasta) {
+    alignement <- read.alignment(file = fichier, format = "fasta")
+    infos <- strsplit(basename(fichier), "_")[[1]]
+    
+    df_temp <- data.frame(
+      id = alignement$nam,
+      sequence_brute = unlist(alignement$seq),
+      pays = infos[3],
+      lot = sub(".fasta", "", infos[4]),
+      stringsAsFactors = FALSE
+    )
+    toutes_les_donnees[[length(toutes_les_donnees) + 1]] <- df_temp
+  }
   
-  # Création du data.frame temporaire
-  df_temp <- data.frame(
-    id = alignement$nam,
-    sequence_brute = unlist(alignement$seq),
-    pays = pays,
-    lot = lot,
-    source = nom_fichier,
-    stringsAsFactors = FALSE
-  )
+  global_data <- do.call(rbind, toutes_les_donnees)
   
-  # Ajout à la liste
-  toutes_les_donnees[[length(toutes_les_donnees) + 1]] <- df_temp
+  # Découpage (nettoyage)
+  decouper_sequence <- function(seq_string) { return(strsplit(seq_string, split = "")[[1]]) }
+  global_data$sequence_liste <- lapply(global_data$sequence_brute, decouper_sequence)
+  
+  print("Importation terminée. Voici un aperçu :")
+  print(table(global_data$pays))
+  
+} else {
+  print("ERREUR : Toujours 0 fichier. Vérifie que le dossier 'data' contient bien les fichiers .fasta")
+  print("Contenu du dossier actuel :")
+  print(list.files())
 }
-
-# Fusion en un seul tableau
-global_data <- do.call(rbind, toutes_les_donnees)
-
-# --- 2. FORMATAGE ET NETTOYAGE ---
-
-# Fonction pour découper la chaîne de caractères (le fameux strsplit demandé par Thomas)
-decouper_sequence <- function(seq_string) {
-  return(strsplit(seq_string, split = "")[[1]])
-}
-
-# On applique la fonction sur chaque ligne
-# Cela crée une colonne 'sequence_liste' qui contient les vecteurs de nucléotides
-global_data$sequence_liste <- lapply(global_data$sequence_brute, decouper_sequence)
-
-# --- 3. VÉRIFICATION ---
-print("--- Résumé des données importées ---")
-print(table(global_data$pays)) # Combien de séquences par pays ?
-print(head(global_data))
